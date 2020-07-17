@@ -60,6 +60,7 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
     var frameWhenWeChangeCellImages = 0
     var changeCellImagesEnabled = false
     var litFuseEffectEnabled = false
+    var singlePassInUseAndValid = false
     var continuousFuseEffectEnabled = false
     var indexIntoArrayOfStrings = 0
     var arrayOfStringsForCycling = [String]()
@@ -67,13 +68,12 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
     var framesBetweenCycles : Int = 1
     var startIndexForCycling = 0
     var endIndexForCycling = 0
-    var desiredFuseVelocity : CGFloat = 0
+    var desiredFuseBurningVelocity : CGFloat = 0
     var desiredFuseEndingVelocity : CGFloat = 0
     var savedFuseBurningScale : CGFloat = 1
     var savedFuseFinalScale : CGFloat = 0
     var savedFuseStartIndex : Int = 0
     var savedFuseEndIndex : Int = 0
-    var savedFuseFramesAtHighVelocity : Int = 0
     var savedFuseStepsPerFrame : Int = 1
     var savedBurningBirthRate : CGFloat = 100
     var savedEndingBirthRate : CGFloat = 1
@@ -91,7 +91,6 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
     var prior_fuseVelocity : CGFloat = 1.0
     var prior_initialVelocity : CGFloat = 0
     var prior_endingVelocity : CGFloat = 0
-    var prior_framesAtHighVelocity : Int = 5
     var prior_cellInitialScale : CGFloat = 0
     var prior_cellFuseBurningScale : CGFloat = 1
     var prior_cellFinalScale : CGFloat = 0
@@ -103,7 +102,9 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
     var prior_continuousFuseDesired : Bool = false
     var prior_repeatingFuseDesired : Bool = false
     var prior_repeatingFuseFramesBetween : Int = 30
-    
+    var transitionToFuseBurningVelocityIndex = 0
+    var transitionToEndingVelocityIndex = 0
+    var transitionToEndingVelocityIndexHasBegun : Bool = false
     
     public override func viewDidLoad()
     {
@@ -149,22 +150,13 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
         {
             if continuousFuseEffectEnabled
             {
-                var adjustedIndex = 0
-                
-                // this for handles the burning fuse
-                for thisIndex in indexIntoLitFuse...indexIntoLitFuse + savedFuseStepsPerFrame
+                for _ in 1...savedFuseStepsPerFrame
                 {
-                    adjustedIndex = thisIndex
+                    // Transition this emitter to fuse burning velocity
+                    let thisCell = arrayOfCells[transitionToFuseBurningVelocityIndex]
+                    let thisEmitter = arrayOfEmitters[transitionToFuseBurningVelocityIndex]
                     
-                    if thisIndex > savedFuseEndIndex
-                    {
-                        adjustedIndex = savedFuseStartIndex - savedFuseEndIndex + thisIndex + 1
-                    }
-                    
-                    let thisCell = arrayOfCells[adjustedIndex]
-                    let thisEmitter = arrayOfEmitters[adjustedIndex]
-                    
-                    thisCell.velocity = desiredFuseVelocity
+                    thisCell.velocity = desiredFuseBurningVelocity
                     thisCell.scale = savedFuseBurningScale
                     if scaleSyncedToLifetime
                     {
@@ -177,21 +169,26 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                     
                     thisEmitter.emitterCells = [aCell]
                     
-                }
-                
-                // this for handles the final state of the fuse after burning
-                for thisIndex in (secondIndexIntoLitFuseForContinuousDisplay)...(secondIndexIntoLitFuseForContinuousDisplay  + savedFuseStepsPerFrame)
-                {
-                    adjustedIndex = thisIndex
+                    transitionToFuseBurningVelocityIndex += 1
                     
-                    if thisIndex >= savedFuseEndIndex
+                    if transitionToFuseBurningVelocityIndex >  savedFuseStepsPerFrame
                     {
-                        adjustedIndex = savedFuseStartIndex - savedFuseEndIndex + thisIndex
+                        transitionToEndingVelocityIndexHasBegun = true
                     }
-                    if thisIndex <= savedFuseEndIndex && thisIndex >= savedFuseStartIndex
+                    
+                    if transitionToFuseBurningVelocityIndex >= arrayOfEmitters.count
                     {
-                        let thisCell = arrayOfCells[thisIndex]
-                        let thisEmitter = arrayOfEmitters[thisIndex]
+                        transitionToFuseBurningVelocityIndex = 0
+                    }
+                }
+                if transitionToEndingVelocityIndexHasBegun
+                {
+                    for _ in 1...savedFuseStepsPerFrame
+                    {
+                        // Transition this emitter to fuse burning velocity
+                        
+                        let thisCell = arrayOfCells[transitionToEndingVelocityIndex]
+                        let thisEmitter = arrayOfEmitters[transitionToEndingVelocityIndex]
                         
                         thisEmitter.beginTime = CACurrentMediaTime()
                         if scaleSyncedToLifetime
@@ -199,39 +196,35 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                             thisCell.scaleSpeed = -1 * savedFuseFinalScale / CGFloat(thisCell.lifetime)
                         }
                         
+                        thisCell.velocity = desiredFuseEndingVelocity
+                        thisCell.scale = savedFuseFinalScale
+                        thisCell.birthRate = Float(savedEndingBirthRate)
+                        thisEmitter.beginTime = CACurrentMediaTime()
+                        
                         let aCell = makeCellBasedOnPreviousCell(thisEmitter: thisEmitter, oldCell: thisCell)
                         
-                        aCell.velocity = desiredFuseEndingVelocity
-                        aCell.scale = savedFuseFinalScale
-                        aCell.birthRate = Float(savedEndingBirthRate)
-                        
                         thisEmitter.emitterCells = [aCell]
+                        
+                        transitionToEndingVelocityIndex += 1
+                        
+                        if transitionToEndingVelocityIndex >= arrayOfEmitters.count
+                        {
+                            transitionToEndingVelocityIndex = 0
+                        }
                     }
-                }
-                
-                indexIntoLitFuse += savedFuseStepsPerFrame
-                secondIndexIntoLitFuseForContinuousDisplay += savedFuseStepsPerFrame
-                
-                if indexIntoLitFuse > savedFuseEndIndex
-                {
-                    indexIntoLitFuse = savedFuseStartIndex
-                }
-                if secondIndexIntoLitFuseForContinuousDisplay > savedFuseEndIndex
-                {
-                    secondIndexIntoLitFuseForContinuousDisplay = savedFuseStartIndex
                 }
             }
             else // continuousFuseEffectEnabled is false
             {
-                // this for handles the burning fuse
-                for thisIndex in indexIntoLitFuse...indexIntoLitFuse + savedFuseStepsPerFrame
+                if singlePassInUseAndValid
                 {
-                    if thisIndex <= savedFuseEndIndex && thisIndex >= savedFuseStartIndex
+                    for _ in 1...savedFuseStepsPerFrame
                     {
-                        let thisCell = arrayOfCells[thisIndex]
-                        let thisEmitter = arrayOfEmitters[thisIndex]
+                        // Transition this emitter to fuse burning velocity
+                        let thisCell = arrayOfCells[transitionToFuseBurningVelocityIndex]
+                        let thisEmitter = arrayOfEmitters[transitionToFuseBurningVelocityIndex]
                         
-                        thisCell.velocity = desiredFuseVelocity
+                        thisCell.velocity = desiredFuseBurningVelocity
                         thisCell.scale = savedFuseBurningScale
                         if scaleSyncedToLifetime
                         {
@@ -243,35 +236,65 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                         let aCell = makeCellBasedOnPreviousCell(thisEmitter: thisEmitter, oldCell: thisCell)
                         
                         thisEmitter.emitterCells = [aCell]
+                        
+                        transitionToFuseBurningVelocityIndex += 1
+                        
+                        if transitionToFuseBurningVelocityIndex >  savedFuseStepsPerFrame
+                        {
+                            transitionToEndingVelocityIndexHasBegun = true
+                        }
+                        
+                        if transitionToFuseBurningVelocityIndex >= arrayOfEmitters.count - 1
+                        {
+                            // stop the fuse burning
+                            singlePassInUseAndValid = false
+                        }
                     }
                 }
                 
-                // this for handles the final state of the fuse after burning
-                for thisIndex in (indexIntoLitFuse - savedFuseFramesAtHighVelocity)...(indexIntoLitFuse - savedFuseFramesAtHighVelocity + savedFuseStepsPerFrame)
+                if transitionToEndingVelocityIndexHasBegun
                 {
-                    if thisIndex <= savedFuseEndIndex && thisIndex >= savedFuseStartIndex
+                    for _ in 1...savedFuseStepsPerFrame
                     {
-                        let thisCell = arrayOfCells[thisIndex]
-                        let thisEmitter = arrayOfEmitters[thisIndex]
+                        // Transition this emitter to fuse burning velocity
+                        
+                        let thisCell = arrayOfCells[transitionToEndingVelocityIndex]
+                        let thisEmitter = arrayOfEmitters[transitionToEndingVelocityIndex]
+                        
+                        thisEmitter.beginTime = CACurrentMediaTime()
+                        if scaleSyncedToLifetime
+                        {
+                            thisCell.scaleSpeed = -1 * savedFuseFinalScale / CGFloat(thisCell.lifetime)
+                        }
                         
                         thisCell.velocity = desiredFuseEndingVelocity
                         thisCell.scale = savedFuseFinalScale
                         thisCell.birthRate = Float(savedEndingBirthRate)
-                        if scaleSyncedToLifetime
-                        {
-                            thisCell.scaleSpeed = -1 * thisCell.scale / CGFloat(thisCell.lifetime)
-                        }
                         thisEmitter.beginTime = CACurrentMediaTime()
                         
                         let aCell = makeCellBasedOnPreviousCell(thisEmitter: thisEmitter, oldCell: thisCell)
                         
                         thisEmitter.emitterCells = [aCell]
+                        
+                        transitionToEndingVelocityIndex += 1
+                        
+                        if transitionToEndingVelocityIndex >= arrayOfEmitters.count
+                        {
+                            // stop the fuse ending velocity
+                            transitionToEndingVelocityIndexHasBegun = false
+                            
+                            // and start the countdown if needed
+                            
+                            countDownForRepeatingLitFuse = numberOfFramesBetweenRepeatedLitFuseDisplays
+                            
+                            // break out of the loop
+                            break
+                        }
                     }
                 }
                 
-                indexIntoLitFuse += savedFuseStepsPerFrame
-                
-                if indexIntoLitFuse > savedFuseEndIndex + savedFuseFramesAtHighVelocity
+                // If we just stopped the fuse ending, do the countdown
+                if indexIntoLitFuse > savedFuseEndIndex
                 {
                     litFuseEffectEnabled = false
                     
@@ -298,7 +321,6 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                     initialVelocity             : prior_initialVelocity,
                     fuseBurningVelocity         : prior_fuseVelocity,
                     endingVelocity              : prior_endingVelocity,
-                    framesAtHighVelocity        : prior_framesAtHighVelocity,
                     cellInitialScale            : prior_cellInitialScale,
                     cellFuseBurningScale        : prior_cellFuseBurningScale,
                     cellEndingScale             : prior_cellFinalScale,
@@ -1003,7 +1025,6 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
         initialVelocity             : CGFloat = 0,
         fuseBurningVelocity         : CGFloat,
         endingVelocity              : CGFloat = 0,
-        framesAtHighVelocity        : Int = 5,
         cellInitialScale            : CGFloat = 0,
         cellFuseBurningScale        : CGFloat = 1,
         cellEndingScale             : CGFloat = 0,
@@ -1025,7 +1046,6 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
         prior_fuseVelocity                  = fuseBurningVelocity
         prior_initialVelocity               = initialVelocity
         prior_endingVelocity                = endingVelocity
-        prior_framesAtHighVelocity          = framesAtHighVelocity
         prior_cellInitialScale              = cellInitialScale
         prior_cellFuseBurningScale          = cellFuseBurningScale
         prior_cellFinalScale                = cellEndingScale
@@ -1068,27 +1088,36 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
             
             indexIntoLitFuse = prior_startIndex - 1
             
-            secondIndexIntoLitFuseForContinuousDisplay = indexIntoLitFuse - prior_framesAtHighVelocity
+            transitionToEndingVelocityIndex = 0
+            transitionToEndingVelocityIndexHasBegun = false
+            transitionToFuseBurningVelocityIndex = 0
         }
         else if repeatingFuseDesired
         {
             repeatingLastLitFuseEnabled = true
             continuousFuseEffectEnabled = false
             numberOfFramesBetweenRepeatedLitFuseDisplays = repeatingFuseFramesBetween
+            singlePassInUseAndValid = true
+            transitionToFuseBurningVelocityIndex = 0
+            transitionToEndingVelocityIndex = 0
+            transitionToEndingVelocityIndexHasBegun = false
         }
         else
         {
             continuousFuseEffectEnabled = false
             repeatingLastLitFuseEnabled = false
+            singlePassInUseAndValid = true
+            transitionToFuseBurningVelocityIndex = 0
+            transitionToEndingVelocityIndex = 0
+            transitionToEndingVelocityIndexHasBegun = false
         }
         
         // Save the values for later
-        desiredFuseVelocity = fuseBurningVelocity
+        desiredFuseBurningVelocity = fuseBurningVelocity
         desiredFuseEndingVelocity = endingVelocity
         savedFuseStartIndex = startIndex - 1
         savedFuseEndIndex = endIndex - 1
         indexIntoLitFuse = startIndex - 1
-        savedFuseFramesAtHighVelocity = framesAtHighVelocity
         savedFuseBurningScale = cellFuseBurningScale
         savedFuseFinalScale = cellEndingScale
         savedFuseStepsPerFrame = stepsPerFrame
@@ -1139,67 +1168,66 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
         
     } // ends repeatLastLitFuseEffectWithSpecifiedNumberOfFramesBetween
     
- /*
-    public func toggleContinuousFuseEffectEnabled()
-    {
-        continuousFuseEffectEnabled.toggle()
-        repeatingLastLitFuseEnabled = false
-        
-        if continuousFuseEffectEnabled
-        {
-            litFuseEffectEnabled = true
-            
-            indexIntoLitFuse = prior_startIndex - 1
-            
-            secondIndexIntoLitFuseForContinuousDisplay = indexIntoLitFuse - prior_framesAtHighVelocity
-        }
-        else
-        {
-            hideAllEmitters()
-        }
-        
-    } // ends toggleContinuousFuseEffectEnabled
+    /*
+     public func toggleContinuousFuseEffectEnabled()
+     {
+     continuousFuseEffectEnabled.toggle()
+     repeatingLastLitFuseEnabled = false
+     
+     if continuousFuseEffectEnabled
+     {
+     litFuseEffectEnabled = true
+     
+     indexIntoLitFuse = prior_startIndex - 1
+     
+     }
+     else
+     {
+     hideAllEmitters()
+     }
+     
+     } // ends toggleContinuousFuseEffectEnabled
+     
+     public func toggleRepeatingLastLitFuseEnabled()
+     {
+     repeatingLastLitFuseEnabled.toggle()
+     numberOfFramesBetweenRepeatedLitFuseDisplays = 40
+     continuousFuseEffectEnabled = false
+     litFuseEffectEnabled = true
+     
+     prior_continuousFuseDesired = false
+     prior_repeatingFuseDesired = true
+     prior_repeatingFuseFramesBetween = 40
+     
+     if !repeatingLastLitFuseEnabled
+     {
+     hideAllEmitters()
+     }
+     
+     } // ends toggleRepeatingLastLitFuseEnabled
+     
+     var randomState = true
+     
+     var summingAngle : CGFloat = 0
+     
+     public func toggleRandomState()
+     {
+     randomState.toggle()
+     if randomState
+     {
+     setEmitterCellDirectionRandomForRangeOfEmittersOnCircle(startIndex: lastStartIndexForVisibleEmitters, endIndex: lastEndIndexForVisibleEmitters)
+     }
+     else
+     {
+     summingAngle += 45
+     
+     setEmitterCellDirectionOutwardsForRangeOfEmittersOnCircle(offsetAngle: summingAngle, startIndex: lastStartIndexForVisibleEmitters, endIndex: lastEndIndexForVisibleEmitters, twistAngleAddition: 0)
+     }
+     
+     } // ends toggleRandomState
+     
+     */
     
-    public func toggleRepeatingLastLitFuseEnabled()
-    {
-        repeatingLastLitFuseEnabled.toggle()
-        numberOfFramesBetweenRepeatedLitFuseDisplays = 40
-        continuousFuseEffectEnabled = false
-        litFuseEffectEnabled = true
-        
-        prior_continuousFuseDesired = false
-        prior_repeatingFuseDesired = true
-        prior_repeatingFuseFramesBetween = 40
-        
-        if !repeatingLastLitFuseEnabled
-        {
-            hideAllEmitters()
-        }
-        
-    } // ends toggleRepeatingLastLitFuseEnabled
     
-    var randomState = true
-    
-    var summingAngle : CGFloat = 0
-    
-    public func toggleRandomState()
-    {
-        randomState.toggle()
-        if randomState
-        {
-            setEmitterCellDirectionRandomForRangeOfEmittersOnCircle(startIndex: lastStartIndexForVisibleEmitters, endIndex: lastEndIndexForVisibleEmitters)
-        }
-        else
-        {
-            summingAngle += 45
-            
-            setEmitterCellDirectionOutwardsForRangeOfEmittersOnCircle(offsetAngle: summingAngle, startIndex: lastStartIndexForVisibleEmitters, endIndex: lastEndIndexForVisibleEmitters, twistAngleAddition: 0)
-        }
-        
-    } // ends toggleRandomState
-    
- */
-    
-
     
 } // ends file
