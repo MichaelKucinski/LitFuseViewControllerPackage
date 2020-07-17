@@ -7,6 +7,8 @@
 //
 //
 
+// mgk
+
 import Foundation
 import UIKit
 
@@ -149,10 +151,14 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
         
         if litFuseEffectEnabled
         {
+            var wentThroughTheLoops : Bool = false
+            
             if continuousFuseEffectEnabled
             {
                 for _ in 1...savedFuseStepsPerFrame
                 {
+                    wentThroughTheLoops = true
+                    
                     // Transition this emitter to fuse burning velocity
                     let thisCell = arrayOfCells[transitionToFuseBurningVelocityIndex]
                     let thisEmitter = arrayOfEmitters[transitionToFuseBurningVelocityIndex]
@@ -172,7 +178,9 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                     
                     transitionToFuseBurningVelocityIndex += 1
                     
-                    if transitionToFuseBurningVelocityIndex >  savedFuseStepsPerFrame
+                    let tempsavedFuseStepsPerFrame : Int = Int(savedFuseStepsPerFrame)
+                    
+                    if transitionToFuseBurningVelocityIndex >  tempsavedFuseStepsPerFrame
                     {
                         transitionToEndingVelocityIndexHasBegun = true
                     }
@@ -186,7 +194,9 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                 {
                     for _ in 1...savedFuseStepsPerFrame
                     {
-                        // Transition this emitter to fuse burning velocity
+                        wentThroughTheLoops = true
+                        
+                        // Transition this emitter to ending velocity
                         
                         let thisCell = arrayOfCells[transitionToEndingVelocityIndex]
                         let thisEmitter = arrayOfEmitters[transitionToEndingVelocityIndex]
@@ -221,6 +231,8 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                 {
                     for _ in 1...savedFuseStepsPerFrame
                     {
+                        wentThroughTheLoops = true
+                        
                         // Transition this emitter to fuse burning velocity
                         let thisCell = arrayOfCells[transitionToFuseBurningVelocityIndex]
                         let thisEmitter = arrayOfEmitters[transitionToFuseBurningVelocityIndex]
@@ -240,15 +252,20 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                         
                         transitionToFuseBurningVelocityIndex += 1
                         
-                        if transitionToFuseBurningVelocityIndex >  savedFuseStepsPerFrame
+                        let tempsavedFuseStepsPerFrame : Int = Int(savedFuseStepsPerFrame)
+                        
+                        if transitionToFuseBurningVelocityIndex >  tempsavedFuseStepsPerFrame
                         {
                             transitionToEndingVelocityIndexHasBegun = true
                         }
                         
-                        if transitionToFuseBurningVelocityIndex >= arrayOfEmitters.count - 1
+                        if transitionToFuseBurningVelocityIndex >= arrayOfEmitters.count
                         {
                             // stop the fuse burning
                             singlePassInUseAndValid = false
+                            
+                            // break out of the loop
+                            break
                         }
                     }
                 }
@@ -257,6 +274,8 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                 {
                     for _ in 1...savedFuseStepsPerFrame
                     {
+                        wentThroughTheLoops = true
+                        
                         // Transition this emitter to fuse burning velocity
                         
                         let thisCell = arrayOfCells[transitionToEndingVelocityIndex]
@@ -291,17 +310,6 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
                             // break out of the loop
                             break
                         }
-                    }
-                }
-                
-                // If we just stopped the fuse ending, do the countdown
-                if indexIntoLitFuse > savedFuseEndIndex
-                {
-                    litFuseEffectEnabled = false
-                    
-                    if repeatingLastLitFuseEnabled
-                    {
-                        countDownForRepeatingLitFuse = numberOfFramesBetweenRepeatedLitFuseDisplays
                     }
                 }
             }
@@ -725,14 +733,18 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
     
     public func hideAllEmitters()
     {
+        litFuseEffectEnabled = false
+        
         for (thisIndex, _) in arrayOfEmitters.enumerated()
         {
             let thisCell = arrayOfCells[thisIndex]
             let thisEmitter = arrayOfEmitters[thisIndex]
             
             thisCell.lifetime = 0
+            thisCell.scale = 0
             
             thisEmitter.beginTime = CACurrentMediaTime()
+            thisEmitter.isHidden = true
             
             let aCell = makeCellBasedOnPreviousCell(thisEmitter: thisEmitter, oldCell: thisCell)
             
@@ -1079,6 +1091,8 @@ public class LitFuseViewController: UIViewController, UITextViewDelegate {
         {
             return
         }
+        
+        desiredRangeOfVisibleEmitters(startIndex: startIndex, endIndex: endIndex)
         
         litFuseEffectEnabled = true
         

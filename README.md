@@ -1,6 +1,6 @@
 # LitFuseViewControllerPackage
 
---
+-- mgk
 
 Lit Fuse Effects can be used to provide uniquely artistic and highly tailorable animation effects that your users will enjoy.  These effects can be used to provide eye catching animations to help your users notice a certain area of the screen.  These effects might be used in gaming, social media,  advertising, or in any app with artistic content.
 
